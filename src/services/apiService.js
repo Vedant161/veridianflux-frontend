@@ -25,6 +25,8 @@ export const createProject = (projectData) => api.post('/projects', projectData)
 
 export const getProjectDetails = (projectId) => api.get(`/projects/${projectId}`);
 export const deleteProject = (projectId) => api.delete(`/projects/${projectId}`);
+export const updateProject = (projectId, projectData) => api.put(`/projects/${projectId}`, projectData);
+export const getProjectStats = (projectId) => api.get(`/projects/${projectId}/stats`);
 
 export const getLogs = (projectId) => api.get(`/logs/${projectId}`);
 
