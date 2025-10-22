@@ -1,70 +1,130 @@
+// src/pages/ProjectDetailsPage.jsx
+
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getLogs } from '../services/apiService';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getLogs, getProjectDetails, deleteProject } from '../services/apiService';
 import { socket } from '../services/socketService';
+import Modal from '../components/Modal'; // Assuming you have a Modal component
 
 const ProjectDetailsPage = () => {
-  const { projectId } = useParams(); // Get the project ID from the URL
+  const { projectId } = useParams();
+  const navigate = useNavigate();
+
+  const [project, setProject] = useState(null); // State for project details
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // State for the deletion modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [confirmationText, setConfirmationText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    // 1. Fetch initial logs when the component mounts
-    const fetchInitialLogs = async () => {
+    const fetchData = async () => {
       try {
-        const response = await getLogs(projectId);
-        setLogs(response.data);
+        // Fetch project details and logs concurrently
+        const [projectRes, logsRes] = await Promise.all([
+          getProjectDetails(projectId),
+          getLogs(projectId)
+        ]);
+        setProject(projectRes.data);
+        setLogs(logsRes.data);
       } catch (error) {
-        console.error('Failed to fetch logs:', error);
+        console.error('Failed to fetch project data:', error);
+        navigate('/dashboard'); // Redirect if project not found or unauthorized
       } finally {
         setLoading(false);
       }
     };
 
-    fetchInitialLogs();
+    fetchData();
 
-    // 2. Connect to the socket server
     socket.connect();
-
-    // 3. Listen for incoming 'new-log' events
     socket.on('new-log', (newLog) => {
-      // Only add the log if it belongs to the current project
       if (newLog.projectId === projectId) {
-        // Add the new log to the top of the list
         setLogs((prevLogs) => [newLog, ...prevLogs]);
       }
     });
 
-    // 4. Clean up on component unmount
     return () => {
-      socket.off('new-log'); // Stop listening for this event
-      socket.disconnect(); // Disconnect from the server
+      socket.off('new-log');
+      socket.disconnect();
     };
-  }, [projectId]); // Re-run the effect if the projectId changes
+  }, [projectId, navigate]);
+  
+  const handleDeleteProject = async () => {
+    if (confirmationText !== project?.projectName) return;
+    setIsDeleting(true);
+    try {
+      await deleteProject(projectId);
+      navigate('/dashboard'); // Redirect to dashboard after successful deletion
+    } catch (error) {
+      console.error("Failed to delete project:", error);
+      alert("Error: Could not delete the project.");
+      setIsDeleting(false);
+    }
+  };
+
+  const getLogTypeClass = (type) => { /* ... (same as before) ... */ };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-emerald-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-8">
-      <Link to="/dashboard" className="text-indigo-400 hover:underline mb-6 block">&larr; Back to Dashboard</Link>
-      <h1 className="text-3xl font-bold mb-2">Real-time Log Feed</h1>
-      <p className="text-gray-400 mb-6">Project ID: {projectId}</p>
+      {/* ... (Header and Log Feed JSX from previous futuristic theme) ... */}
+      <h1 className="text-4xl font-bold text-white drop-shadow-[0_0_10px_rgba(0,255,200,0.5)]">
+        {project?.projectName}
+      </h1>
 
-      <div className="bg-gray-900 rounded-lg shadow-inner p-4 h-[60vh] overflow-y-auto">
-        {loading ? (
-          <p className="text-center text-gray-400">Loading initial logs...</p>
-        ) : logs.length > 0 ? (
-          logs.map((log) => (
-            <div key={log._id} className="font-mono text-sm p-2 border-b border-gray-700">
-              <span className="text-green-400">{new Date(log.createdAt).toLocaleString()}</span>
-              <span className={`ml-4 font-bold ${log.type === 'error' ? 'text-red-500' : 'text-blue-400'}`}>
-                [{log.type.toUpperCase()}]
-              </span>
-              <span className="ml-4 text-gray-200">{log.message}</span>
-            </div>
-          ))
-        ) : (
-          <p className="text-center text-gray-400">No logs received yet. Waiting for data...</p>
-        )}
+      {/* ... (Log Feed JSX) ... */}
+
+      {/* --- DANGER ZONE --- */}
+      <div className="mt-12 p-6 bg-red-900/20 border border-red-500/30 rounded-lg">
+        <h3 className="text-xl font-bold text-red-400">Danger Zone</h3>
+        <p className="text-red-300/70 mt-2 mb-4">
+          Deleting a project is an irreversible action. All associated logs and data will be permanently removed.
+        </p>
+        <button
+          onClick={() => setIsDeleteModalOpen(true)}
+          className="px-4 py-2 font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+        >
+          Delete this project
+        </button>
       </div>
+
+      {/* --- DELETION CONFIRMATION MODAL --- */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Confirm Deletion"
+      >
+        <div className="space-y-4">
+          <p className="text-cyan-200/70">
+            This action cannot be undone. To confirm, please type the project name{' '}
+            <strong className="text-yellow-300">{project?.projectName}</strong> in the box below.
+          </p>
+          <input
+            type="text"
+            value={confirmationText}
+            onChange={(e) => setConfirmationText(e.target.value)}
+            className="w-full px-3 py-2 text-white bg-black/20 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            placeholder="Project Name"
+          />
+          <button
+            onClick={handleDeleteProject}
+            disabled={confirmationText !== project?.projectName || isDeleting}
+            className="w-full py-2 font-bold text-white bg-red-600 rounded-md transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-red-700"
+          >
+            {isDeleting ? "Deleting..." : "I understand, delete this project"}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

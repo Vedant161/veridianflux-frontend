@@ -1,3 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@300;400;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body {
+  background-color: #0a0a1a; /* A deep, dark blue-black */
+  color: #e0e0e0;
+  font-family: 'Oxanium', sans-serif;
+  background-image: radial-gradient(circle at 1px 1px, #2a2a4a 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+/* Custom Themed Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #111122;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 200, 0.4);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 200, 0.7);
+}
